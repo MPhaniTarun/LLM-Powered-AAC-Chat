@@ -3,58 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AAC Web Interface with Word Prediction</title>
+    <title>AAC Web Interface with LLM Predictions</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .input-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 10px;
+        }
+        #message {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
         .suggestions {
             border: 1px solid #ccc;
-            max-width: 300px;
             background-color: white;
             position: absolute;
+            width: 100%;
             z-index: 1000;
-            padding: 5px;
-            display: none; /* Start hidden */
+            display: none;
         }
         .suggestions div {
-            padding: 5px;
+            padding: 10px;
             cursor: pointer;
+            border-bottom: 1px solid #ddd;
         }
         .suggestions div:hover, .selected {
-            background-color: #eee;
+            background-color: #f1f1f1;
+        }
+        .selected { 
+            background-color: #d3e5ff !important; /* Light blue highlight */
         }
     </style>
+</head>
+<body>
+    <h2>AAC Web Interface with LLM Predictions</h2>
+    
+    <div class="input-container">
+        <input type="text" id="message" placeholder="Type your message..." oninput="fetchPredictions()" />
+        <div id="suggestions" class="suggestions"></div>
+    </div>
+    
+    <button onclick="speakMessage()">Speak</button>
+
     <script>
         let suggestionIndex = -1; // Track selected suggestion index
         let suggestionsList = []; // Store prediction words
-        
+    
         function addToMessage(word) {
             let textBox = document.getElementById("message");
-            textBox.value = textBox.value.trim() + " " + word + " "; // Append word with space
-            textBox.focus(); // Keep focus on the text area
-            
-            // Fetch new predictions after adding a word
-            fetchPredictions();
+            textBox.value = word + " ";  // Append word and add a space
+            textBox.focus(); // Keep focus on input
+            suggestionIndex = -1;  // Reset selection
+            suggestionsList = [];  // Clear suggestions
+            document.getElementById("suggestions").innerHTML = ""; // Clear UI
+            document.getElementById("suggestions").style.display = "none";
+            fetchPredictions(); // Fetch next prediction immediately
         }
-    
-        function speakMessage() {
-            let text = document.getElementById("message").value;
-            fetch("/speak", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: text })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    let audio = new Audio(data.audio);
-                    audio.play();
-                } else {
-                    alert("Error: " + data.message);
-                }
-            });
-        }
-    
+
         function fetchPredictions() {
-            let text = document.getElementById("message").value;
+            let text = document.getElementById("message").value.trim();
+            if (text === "") {
+                document.getElementById("suggestions").innerHTML = "";
+                document.getElementById("suggestions").style.display = "none";
+                return;
+            }
+
             fetch("/predict", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -63,69 +83,50 @@
             .then(response => response.json())
             .then(data => {
                 suggestionsList = data.predictions;
+                suggestionIndex = -1; // Reset selection when new predictions load
                 updateSuggestionsUI();
-            });
+            })
+            .catch(error => console.error("Error fetching predictions:", error));
         }
-    
+
         function updateSuggestionsUI() {
             let suggestionsDiv = document.getElementById("suggestions");
             suggestionsDiv.innerHTML = "";
-    
+
             if (suggestionsList.length > 0) {
-                suggestionsDiv.style.display = "block"; // Keep suggestions visible
+                suggestionsDiv.style.display = "block"; // Show suggestions
             } else {
-                suggestionsDiv.style.display = "none"; // Hide if empty
+                suggestionsDiv.style.display = "none"; // Hide if no suggestions
             }
-    
+
             suggestionsList.forEach((word, index) => {
                 let div = document.createElement("div");
                 div.textContent = word;
-                div.className = (index === suggestionIndex) ? "selected" : ""; // Highlight selected
+                div.className = index === suggestionIndex ? "selected" : ""; // Highlight the selected item
                 div.onclick = function() {
                     addToMessage(word);
                 };
                 suggestionsDiv.appendChild(div);
             });
         }
-    
-        document.getElementById("message").addEventListener("input", fetchPredictions); // Trigger prediction on input
-        
+
         document.getElementById("message").addEventListener("keydown", function(event) {
             let suggestionsDiv = document.getElementById("suggestions");
-    
+            let children = suggestionsDiv.children;
+
             if (event.key === "Tab" && suggestionsList.length > 0) {
                 event.preventDefault(); // Prevent default tab behavior
                 suggestionIndex = (suggestionIndex + 1) % suggestionsList.length; // Cycle through suggestions
                 updateSuggestionsUI();
             }
-    
-            if ((event.key === "Enter" || event.key === " ") && suggestionIndex !== -1) {
+
+            if (event.key === "Enter" && suggestionIndex !== -1) {
                 event.preventDefault(); // Prevent default action
-                addToMessage(suggestionsList[suggestionIndex]);
+                addToMessage(suggestionsList[suggestionIndex]); // Select suggestion
             }
         });
-    
-        // Keep predictions open when clicking inside the text area
-        document.getElementById("message").addEventListener("focus", fetchPredictions);
-    
-    </script>   
-</head>
-<body>
-    <h2>AAC Web Interface with Word Prediction</h2>
-    
-    <div>
-        <button onclick="addToMessage('Hello')">Hello</button>
-        <button onclick="addToMessage('How are you?')">How are you?</button>
-        <button onclick="addToMessage('Yes')">Yes</button>
-        <button onclick="addToMessage('No')">No</button>
-        <button onclick="addToMessage('Thank you')">Thank you</button>
-    </div>
 
-    <div style="position: relative;">
-        <textarea id="message" rows="3" cols="40" onkeyup="fetchPredictions()"></textarea>
-        <div id="suggestions" class="suggestions"></div>
-    </div>
-    
-    <button onclick="speakMessage()">Speak</button>
+        document.getElementById("message").addEventListener("focus", fetchPredictions);
+    </script>
 </body>
 </html>
