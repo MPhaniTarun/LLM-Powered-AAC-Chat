@@ -29,5 +29,5 @@ Ensure you have **Python 3.8+** installed.
    python app.py
 
 ##  Contributors
-### 👤 Phani Tarun Munukuntla (@MPhaniTarun)
-### 👤 Charan Kumar Raju Somalaraju (@c7r7)
+#### 👤 Phani Tarun Munukuntla (@MPhaniTarun)
+#### 👤 Charan Kumar Raju Somalaraju (@c7r7)
